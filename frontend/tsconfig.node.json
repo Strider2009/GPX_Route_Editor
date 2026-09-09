@@ -4,7 +4,14 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+
+    // A composite project must emit (noEmit is rejected as TS6310), so send the
+    // output somewhere ignored instead. Left at the default it writes a
+    // vite.config.js next to vite.config.ts, and Vite then has two configs to
+    // choose between. Only the type check matters here.
+    "outDir": "./node_modules/.tmp/tsconfig.node",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
   },
   "include": ["vite.config.ts"]
 }

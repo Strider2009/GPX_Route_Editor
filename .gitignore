@@ -7,6 +7,9 @@ data/
 
 node_modules/
 dist/
+
+# tsc -b writes these next to the sources; they are build state, not source.
+*.tsbuildinfo
 __pycache__/
 *.pyc
 .venv/
