@@ -1,0 +1,200 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Palette taken from lisscyclingclub.co.uk. Their layout is a near-black nav bar,
+   a teal banner band, then white content on an off-white page, with magenta for
+   headings and active states. Teal is a section background there, not a hint. */
+:root {
+  --brand: #e6006e;
+  --brand-dark: #c00059;
+  --brand-tint: #fde5f0;
+  --teal: #009d90;
+  --teal-dark: #00776e;
+  --teal-deep: #00443f;
+  --teal-tint: #e0f4f2;
+  --bar: #1c1c1c;
+  --ink: #1c1c1c;
+  --ink-muted: #5f6368;
+  --ink-faint: #9aa0a6;
+  --page: #f9f9f9;
+  --surface: #ffffff;
+  --line: #e4e5e7;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  font-family: Roboto, system-ui, sans-serif;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+
+  /* Form controls are used all over the panels, so style them once here rather
+     than repeating utilities on every one. */
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  select {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    color: var(--ink);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  input[type="text"]:focus,
+  input[type="number"]:focus,
+  input[type="date"]:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--brand-tint);
+  }
+
+  input[type="checkbox"] {
+    accent-color: var(--brand);
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  input[type="range"] {
+    accent-color: var(--brand);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d6d8db;
+    border-radius: 6px;
+    border: 2px solid var(--page);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #bfc2c6;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+    background: var(--surface);
+    border-color: var(--line);
+    color: var(--ink);
+  }
+  .btn:hover:not(:disabled) {
+    background: #f1f2f4;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+    background: var(--brand);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--brand-dark);
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors;
+    background: #fdecec;
+    color: #c5221f;
+  }
+  .btn-danger:hover {
+    background: #fbdcdc;
+  }
+
+  /* Each sidebar section is a card rather than a rule-separated block. */
+  .panel {
+    @apply flex flex-col gap-2 rounded-lg p-3 text-sm;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+
+  /* Teal rather than magenta: a dozen of these stack up in the sidebar, and
+     magenta at that density fights the primary actions for attention. */
+  .panel-title {
+    @apply text-xs font-bold uppercase;
+    letter-spacing: 0.06em;
+    color: var(--teal-dark);
+  }
+
+  /* The site's nav: near-black bar, white type, magenta underline when active. */
+  .navbar {
+    background: var(--bar);
+    color: #fff;
+  }
+
+  .nav-link {
+    @apply relative text-sm font-medium transition-colors;
+    color: rgba(255, 255, 255, 0.85);
+  }
+  .nav-link:hover {
+    color: #fff;
+  }
+  .nav-link::after {
+    content: "";
+    @apply absolute left-0 right-0 -bottom-1.5 h-0.5 scale-x-0 transition-transform;
+    background: var(--brand);
+  }
+  .nav-link:hover::after {
+    @apply scale-x-100;
+  }
+
+  /* Buttons sitting on the dark bar can't use the white .btn treatment. */
+  .btn-bar {
+    @apply inline-flex items-center justify-center gap-1 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #fff;
+  }
+  .btn-bar:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .btn-teal {
+    @apply inline-flex items-center justify-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+    background: var(--teal);
+  }
+  .btn-teal:hover:not(:disabled) {
+    background: var(--teal-dark);
+  }
+
+  /* The teal banner band that heads each of their pages. */
+  .banner {
+    background: linear-gradient(160deg, var(--teal-deep) 0%, var(--teal) 65%, #4cc4b8 100%);
+    color: #fff;
+  }
+
+  .hint {
+    @apply text-[11px] leading-snug;
+    color: var(--ink-faint);
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium;
+    background: var(--brand-tint);
+    color: var(--brand-dark);
+  }
+}

@@ -1,0 +1,41 @@
+[project]
+name = "gpx-editor-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["__pycache__"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes - undefined names, unused imports
+    "I",   # import ordering
+    "B",   # bugbear - mutable defaults, shadowed loop vars
+    "UP",  # pyupgrade
+    "S",   # bandit security rules
+    "C4",  # comprehension clarity
+]
+ignore = [
+    "E501",  # long lines: the formatter owns wrapping
+    "B008",  # FastAPI's Depends()/Query() in defaults is the documented idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests legitimately use asserts, and reach into private helpers to pin invariants.
+"tests/*" = ["S101", "SLF001"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+# The codebase isn't fully annotated; this catches outright contradictions only.
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true

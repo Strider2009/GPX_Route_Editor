@@ -1,0 +1,12 @@
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+sqlalchemy==2.0.52
+gpxpy==1.6.2
+# Handles the multipart GPX uploads; <0.0.31 has several parser CVEs.
+python-multipart==0.0.32
+pydantic==2.13.5
+tzdata==2024.2
+
+# FastAPI's ASGI core. Pinned explicitly rather than left transitive so the
+# dependency audit has a fixed version to check.
+starlette==1.6.0

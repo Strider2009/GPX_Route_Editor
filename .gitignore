@@ -1,0 +1,31 @@
+# Runtime data: the SQLite DB holds live Strava access/refresh tokens.
+data/
+*.db
+
+# Holds the Strava client secret and refresh token
+.env
+
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.claude/settings.local.json
+*.log
+
+# Scratch/working material. Captured third-party pages and API responses live
+# here and have included other people's client-side API keys, so it stays out.
+scratch/
+
+# Captured network/tile artefacts used while reverse-engineering the roadworks
+# feed. Large, and they embed upstream API keys.
+*.har
+*.pbf
+
+# GPX traces are personal location data - they usually start at your front door.
+# Force-add a deliberately chosen sample if you ever want one in the repo.
+*.gpx
