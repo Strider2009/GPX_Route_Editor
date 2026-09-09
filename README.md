@@ -92,6 +92,33 @@ no hobbyist tier, and komoot has no public API (partner agreements only).
 - **Export**: download a single day (optionally including its connectors), the whole trip as one
   combined GPX file, or the whole trip as a zip of per-day GPX files.
 
+## Keeping secrets out of the repo
+
+Live credentials live in `.env` (gitignored) and the Strava access/refresh tokens live in
+`data/gpx_editor.db` (also gitignored). Neither has ever been committed.
+
+A pre-commit hook blocks anything that would change that. Enable it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+It refuses a commit that adds:
+
+- `.env` / `.env.*` files, or any `.db`, `.sqlite`, `.pem`, `.key`, SSH key, `.npmrc` or `.netrc`
+- `.gpx` traces (personal location data) and `.har` / `.pbf` captures (they embed upstream API keys)
+- the literal value of any secret in your local `.env`, matched against the staged diff
+- recognised token shapes: AWS, GitHub, Slack, Google, Stripe, JWTs, private key blocks,
+  URLs with inline passwords, and hardcoded `secret =`/`password =` literals
+- any file over 5 MB, since data dumps are usually captures rather than source
+
+Env lookups (`os.environ[...]`, `process.env`), type annotations and `.env.template` are not
+flagged. If a hit is genuinely a false positive, `git commit --no-verify` overrides it.
+
+Installing [gitleaks](https://github.com/gitleaks/gitleaks) locally is optional; the hook uses
+it automatically when present. CI runs the full gitleaks history scan either way, along with
+dependency, container and config scanning (see `.github/workflows/security.yml`).
+
 ## Project layout
 
 ```

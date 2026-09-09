@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# Blocks commits that would leak secrets or personal data.
+#
+# Enable (once per clone):  git config core.hooksPath .githooks
+# Bypass (deliberate):      git commit --no-verify
+#
+# This is a local mirror of the "Secret scan" job in .github/workflows/security.yml.
+# Catching it here means the secret never reaches a commit, which matters because
+# rewriting published history is the only other cure.
+
+set -u
+
+ROOT=$(git rev-parse --show-toplevel)
+RED=''; YEL=''; OFF=''
+if [ -t 2 ]; then RED='\033[31m'; YEL='\033[33m'; OFF='\033[0m'; fi
+
+fail=0
+note() { printf "${RED}BLOCKED${OFF} %s\n" "$1" >&2; fail=1; }
+warn() { printf "${YEL}warning${OFF} %s\n" "$1" >&2; }
+
+# ---------------------------------------------------------------- tracked .env
+# gitleaks matches known token shapes; this catches the file itself whatever is in it.
+for env_file in $(git ls-files | grep -E '(^|/)\.env$|(^|/)\.env\.[A-Za-z0-9_.-]+$' | grep -v '\.env\.template$' || true); do
+    note ".env file is tracked by git: $env_file"
+done
+
+# ------------------------------------------------------- staged file blocklist
+# Extensions and names that carry credentials, personal location data, or captured
+# third-party traffic. .env.template is the documented, value-free exception.
+while IFS= read -r -d '' f; do
+    case "$f" in
+        *.env.template|*.gitleaksignore) continue ;;
+    esac
+    case "$f" in
+        .env|*/.env|.env.*|*/.env.*)
+            note "environment file: $f (holds the Strava client secret)" ;;
+        *.db|*.sqlite|*.sqlite3)
+            note "database file: $f (the app DB stores live Strava access/refresh tokens)" ;;
+        *.gpx)
+            note "GPX trace: $f (personal location data - routes usually start at your home)" ;;
+        *.har|*.pbf)
+            note "captured traffic: $f (embeds upstream API keys)" ;;
+        *.pem|*.key|*.p12|*.pfx|*.jks|*.keystore)
+            note "key material: $f" ;;
+        id_rsa|*/id_rsa|id_dsa|*/id_dsa|id_ecdsa|*/id_ecdsa|id_ed25519|*/id_ed25519)
+            note "SSH private key: $f" ;;
+        *.pypirc|*/.npmrc|.npmrc|*/.netrc|.netrc|*credentials.json|*service-account*.json)
+            note "credential file: $f" ;;
+        settings.local.json|*/settings.local.json)
+            note "local settings file: $f (machine-specific, may contain tokens)" ;;
+    esac
+
+    # Large files are usually data dumps or captures rather than source.
+    size=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
+    if [ "$size" -gt 5242880 ]; then
+        note "large file: $f ($((size / 1048576)) MB) - data dumps often carry personal data"
+    fi
+done < <(git diff --cached -z --name-only --diff-filter=ACM)
+
+# ------------------------------------------- real secrets from the local .env
+# The strongest check available: the literal values this machine actually uses.
+# Never prints them.
+if [ -f "$ROOT/.env" ]; then
+    while IFS= read -r line; do
+        name=${line%%=*}
+        value=${line#*=}
+        case "$name" in *SECRET*|*TOKEN*|*KEY*|*PASSWORD*|*CLIENT_ID*) ;; *) continue ;; esac
+        [ ${#value} -ge 8 ] || continue
+        case "$value" in http://*|https://*) continue ;; esac
+        if git diff --cached -U0 -G"$(printf '%s' "$value" | sed 's/[][\.*^$/&]/\&/g')" --name-only \
+             | grep -q .; then
+            note "staged content contains the live value of $name from your .env"
+        fi
+    done < <(grep -E '^[A-Za-z_][A-Za-z0-9_]*=..*' "$ROOT/.env" 2>/dev/null || true)
+fi
+
+# ------------------------------------------------- known token shapes in diffs
+# Only added lines are scanned, so pre-existing text never re-triggers.
+added=$(git diff --cached --diff-filter=ACM -U0 -- . ':!*package-lock.json' \
+        | grep '^+' | grep -v '^+++' | cut -c2- || true)
+
+scan() {
+    if printf '%s\n' "$added" | grep -IqE "$1"; then note "$2"; fi
+}
+
+scan '\-\-\-\-\-BEGIN [A-Z ]*PRIVATE KEY\-\-\-\-\-'      "a private key block is being added"
+scan 'AKIA[0-9A-Z]{16}'                                   "an AWS access key id is being added"
+scan 'gh[pousr]_[A-Za-z0-9]{36}'                          "a GitHub token is being added"
+scan 'github_pat_[A-Za-z0-9_]{22,}'                       "a GitHub fine-grained token is being added"
+scan 'xox[baprs]-[A-Za-z0-9-]{10,}'                       "a Slack token is being added"
+scan 'AIza[0-9A-Za-z_-]{35}'                              "a Google API key is being added"
+scan 'sk_live_[0-9a-zA-Z]{24,}'                           "a Stripe live key is being added"
+scan 'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.'     "a JWT is being added"
+scan 'https?://[^[:space:]/]*:[^[:space:]@/]+@'           "a URL with an inline password is being added"
+
+# Generic "name = long literal" assignments, minus the ways code legitimately
+# names a secret without containing one (env lookups, types, placeholders).
+suspect=$(printf '%s\n' "$added" \
+    | grep -IiE '(secret|passwd|password|api[_-]?key|apikey|client[_-]?secret|refresh[_-]?token|access[_-]?token|auth[_-]?token|private[_-]?key)["'"'"' ]*[:=]' \
+    | grep -IiE '["'"'"'][A-Za-z0-9_./+=-]{16,}["'"'"']' \
+    | grep -IivE 'os\.environ|getenv|process\.env|import\.meta\.env|SecretStr|Mapped\[|\$\{|<[a-z_]+>|your_|example|placeholder|dummy|redacted|xxxx|changeme|f"|\{\}' \
+    || true)
+if [ -n "$suspect" ]; then
+    note "a hardcoded credential literal is being added:"
+    printf '%s\n' "$suspect" | head -5 | sed 's/^/          /' >&2
+fi
+
+# 32/40-char hex assigned to something secret-shaped: the Strava token shape.
+scan '(secret|token|key)["'"'"' ]*[:=]["'"'"' ]*["'"'"']?[0-9a-f]{32,40}' \
+     "a hex secret (Strava client secret / refresh token shape) is being added"
+
+# ------------------------------------------------------------ gitleaks, if any
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks protect --staged --redact --no-banner >/dev/null 2>&1 || {
+        note "gitleaks flagged the staged changes; run: gitleaks protect --staged --redact --verbose"
+    }
+else
+    warn "gitleaks not installed - relying on the built-in patterns (CI still runs the full scan)"
+fi
+
+if [ "$fail" -ne 0 ]; then
+    printf "\n${RED}Commit rejected.${OFF} Unstage the offending change, or if it is genuinely safe:\n" >&2
+    printf "  git commit --no-verify\n\n" >&2
+    exit 1
+fi
+
+exit 0
