@@ -55,6 +55,9 @@ class Day(Base):
     connectors: Mapped[list["Connector"]] = relationship(
         back_populates="day", cascade="all, delete-orphan"
     )
+    pois: Mapped[list["Poi"]] = relationship(
+        back_populates="day", cascade="all, delete-orphan", order_by="Poi.id"
+    )
 
 
 class Roadwork(Base):
@@ -200,3 +203,86 @@ class Connector(Base):
     points: Mapped[list] = mapped_column(JSON, default=list)
 
     day: Mapped["Day"] = relationship(back_populates="connectors")
+
+
+class Poi(Base):
+    """A point of interest on a Day: a cafe, a water stop, a viewpoint.
+
+    Exported as a top-level <wpt> rather than as part of the track, so a POI is
+    independent of the route geometry and survives the trims, splits and
+    rotations that renumber track points. Like a Connector it ignores the day's
+    lock - marking a cafe is not an edit to the route.
+    """
+
+    __tablename__ = "pois"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day_id: Mapped[int] = mapped_column(ForeignKey("days.id"))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    lat: Mapped[float] = mapped_column(Float)
+    lon: Mapped[float] = mapped_column(Float)
+    ele: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # GPX <sym>. Free text on purpose: it is only an icon hint and every device
+    # recognises a different vocabulary, so we pass through whatever is set.
+    symbol: Mapped[str | None] = mapped_column(String, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    day: Mapped["Day"] = relationship(back_populates="pois")
+
+
+class Venue(Base):
+    """A place near a route, cached from OpenStreetMap.
+
+    OSM is ODbL, so this can be stored, which is what makes the offline behaviour
+    and the preferred list work. A ratings provider's content is deliberately not
+    here: only `rating_ref`, the provider's own id for the place, which is the one
+    field their terms allow to be kept. Ratings are fetched live and discarded.
+    """
+
+    __tablename__ = "venues"
+    __table_args__ = (UniqueConstraint("source", "external_id", name="uq_venue_source_external"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String, default="osm")
+    # OSM type and id together, e.g. "node/1234567" - ways and relations both occur.
+    external_id: Mapped[str] = mapped_column(String, index=True)
+    name: Mapped[str] = mapped_column(String)
+    # One of the keys in overpass_fetch.KINDS: cafe, food, water, toilets, bicycle.
+    kind: Mapped[str] = mapped_column(String, index=True)
+    lat: Mapped[float] = mapped_column(Float)
+    lon: Mapped[float] = mapped_column(Float)
+    # The raw OSM tags worth keeping: opening_hours, brand, outdoor_seating and so on.
+    tags: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # Your own judgement, not anyone's data. A preferred venue needs no rating
+    # lookup at all, which is the cheapest request there is.
+    preferred: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    user_note: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Provider id only, never their content. rating_checked_at records that a
+    # lookup happened even when it found nothing, so misses aren't retried.
+    rating_provider: Mapped[str | None] = mapped_column(String, nullable=True)
+    rating_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    rating_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+
+
+class VenueArea(Base):
+    """Which circles have already been asked about, so a repeat search costs nothing.
+
+    Mirrors PotholeArea: the point of both is that re-opening a panel must not
+    re-hit somebody else's donated server.
+    """
+
+    __tablename__ = "venue_areas"
+    __table_args__ = (UniqueConstraint("key", name="uq_venue_area_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String, index=True)
+    lat: Mapped[float] = mapped_column(Float)
+    lon: Mapped[float] = mapped_column(Float)
+    radius_m: Mapped[int] = mapped_column(Integer)
+    kinds: Mapped[str] = mapped_column(String)
+    found: Mapped[int] = mapped_column(Integer, default=0)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))

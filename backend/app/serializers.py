@@ -1,5 +1,5 @@
 from .geo import cumulative_distance, elevation_gain_loss
-from .models import Connector, Day, Project
+from .models import Connector, Day, Poi, Project, Venue
 from .route_ops import window_in_source
 
 
@@ -20,6 +20,36 @@ def connector_schema(c: Connector) -> dict:
         "name": c.name,
         "type": c.type,
         "points": c.points or [],
+    }
+
+
+def poi_schema(p: Poi) -> dict:
+    return {
+        "id": p.id,
+        "day_id": p.day_id,
+        "name": p.name,
+        "lat": p.lat,
+        "lon": p.lon,
+        "ele": p.ele,
+        "symbol": p.symbol,
+        "notes": p.notes,
+    }
+
+
+def venue_schema(v: Venue) -> dict:
+    """Only OSM fields and the user's own decisions - no provider content."""
+    return {
+        "id": v.id,
+        "source": v.source,
+        "external_id": v.external_id,
+        "name": v.name,
+        "kind": v.kind,
+        "lat": v.lat,
+        "lon": v.lon,
+        "tags": v.tags or {},
+        "preferred": v.preferred,
+        "user_note": v.user_note,
+        "has_rating_ref": v.rating_ref is not None,
     }
 
 
@@ -55,6 +85,7 @@ def day_detail(day: Day) -> dict:
     data["source_start"] = start
     data["source_end"] = end
     data["connectors"] = [connector_schema(c) for c in day.connectors]
+    data["pois"] = [poi_schema(p) for p in day.pois]
     return data
 
 

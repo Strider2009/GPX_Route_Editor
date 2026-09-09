@@ -52,11 +52,52 @@ def _parse_time(value: str | None):
         return None
 
 
-def build_gpx(name: str, segments: list[tuple[str, list[dict]]]) -> bytes:
-    """Build a GPX file where each (name, points) pair becomes its own <trk>."""
+def parse_waypoints(data: bytes) -> list[dict]:
+    """Pull any <wpt> markers out of a GPX file.
+
+    Separate from parse_gpx because waypoints belong to the file rather than to
+    any one track, so the caller has to decide which day each one lands on.
+    """
+    text = data.decode("utf-8", errors="replace")
+    gpx = gpxpy.parse(text)
+    return [
+        {
+            "name": w.name or "Waypoint",
+            "lat": w.latitude,
+            "lon": w.longitude,
+            "ele": w.elevation,
+            "symbol": w.symbol,
+            "notes": w.description or w.comment,
+        }
+        for w in gpx.waypoints
+    ]
+
+
+def build_gpx(
+    name: str,
+    segments: list[tuple[str, list[dict]]],
+    waypoints: list[dict] | None = None,
+) -> bytes:
+    """Build a GPX file where each (name, points) pair becomes its own <trk>.
+
+    Any waypoints are written as top-level <wpt> markers, which is how devices
+    and other tools expect points of interest to arrive.
+    """
     gpx = gpxpy.gpx.GPX()
     gpx.name = name
     gpx.creator = "GPX Route Editor"
+
+    for w in waypoints or []:
+        gpx.waypoints.append(
+            gpxpy.gpx.GPXWaypoint(
+                latitude=w["lat"],
+                longitude=w["lon"],
+                elevation=w.get("ele"),
+                name=w.get("name"),
+                description=w.get("notes"),
+                symbol=w.get("symbol"),
+            )
+        )
 
     for seg_name, points in segments:
         if not points:
@@ -97,3 +138,18 @@ def day_export_segments(day, include_connectors: bool = True) -> list[tuple[str,
             if c.type == "spur" and c.points:
                 segments.append((c.name, c.points))
     return segments
+
+
+def day_export_waypoints(day) -> list[dict]:
+    """The day's POIs in the shape build_gpx wants."""
+    return [
+        {
+            "name": p.name,
+            "lat": p.lat,
+            "lon": p.lon,
+            "ele": p.ele,
+            "symbol": p.symbol,
+            "notes": p.notes,
+        }
+        for p in day.pois
+    ]

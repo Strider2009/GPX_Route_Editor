@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from .. import history, route_ops, weather
 from ..database import get_db
-from ..geo import cumulative_distance, haversine
-from ..gpx_io import build_gpx, day_export_segments
+from ..geo import cumulative_distance, distance_to_route, haversine
+from ..gpx_io import build_gpx, day_export_segments, day_export_waypoints
 from ..models import Day
 from ..schemas import BoolValue, DayUpdate, MergeRequest, RotateRequest, SplitRequest, TrimRequest
 from ..serializers import day_detail
@@ -327,6 +327,23 @@ def _apply_split(db: Session, day: Day, indices: list[int]):
             db.add(new_day)
             result_days.append(new_day)
 
+    # POIs belong to a place, not to a point index, so they follow the chunk that
+    # now runs nearest them. Without this they would all pile onto chunk 1 and a
+    # later day would export without the cafe that is actually on it.
+    stranded = list(day.pois)
+    db.flush()  # the new days need ids before anything can point at them
+    for poi in stranded:
+        best_day = None
+        best_dist = None
+        for candidate, chunk in zip(result_days, chunks, strict=True):
+            if not chunk:
+                continue
+            dist, _ = distance_to_route(poi.lat, poi.lon, chunk)
+            if best_dist is None or dist < best_dist:
+                best_day, best_dist = candidate, dist
+        if best_day is not None:
+            poi.day_id = best_day.id
+
     db.commit()
     for d in result_days:
         db.refresh(d)
@@ -373,8 +390,16 @@ def merge_days(payload: MergeRequest, db: Session = Depends(get_db)):
     lo, hi = (a, b) if a.order_index < b.order_index else (b, a)
     lo.points = route_ops.merge(lo.points or [], hi.points or [])
     _rebaseline(lo)
+    # Move both collections off hi before it is deleted. Reassigning .day_id is
+    # not enough: the object stays in hi.connectors / hi.pois, and the
+    # delete-orphan cascade then deletes it along with the day. Taking it out of
+    # one collection and putting it in the other is what actually reparents it.
     for c in list(hi.connectors):
-        c.day_id = lo.id
+        hi.connectors.remove(c)
+        lo.connectors.append(c)
+    for poi in list(hi.pois):
+        hi.pois.remove(poi)
+        lo.pois.append(poi)
 
     project_id = lo.project_id
     hi_order = hi.order_index
@@ -474,7 +499,7 @@ def day_weather(
 def export_day(day_id: int, include_connectors: bool = True, db: Session = Depends(get_db)):
     day = get_day_or_404(db, day_id)
     segments = day_export_segments(day, include_connectors=include_connectors)
-    xml = build_gpx(day.name, segments)
+    xml = build_gpx(day.name, segments, waypoints=day_export_waypoints(day))
     return Response(
         content=xml,
         media_type="application/gpx+xml",

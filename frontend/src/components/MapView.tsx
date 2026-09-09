@@ -1,7 +1,14 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
-import type { DayDetail, DayGeometry, Point, PotholeMatch, RoadworkMatch } from "../api/types";
+import type {
+  DayDetail,
+  DayGeometry,
+  Point,
+  PotholeMatch,
+  RoadworkMatch,
+  VenueSearchResult,
+} from "../api/types";
 import { useUIStore } from "../state/uiStore";
 import { haversine } from "../lib/geo";
 import { RELEVANCE_COLORS } from "./RoadworksPanel";
@@ -153,6 +160,10 @@ interface Props {
   day: DayDetail | undefined;
   drawMode: boolean;
   draftPoints: Point[];
+  /** Where a POI is about to be placed, drawn until it is saved. */
+  pendingPoi: { lat: number; lon: number } | null;
+  /** Search results from the venue panel; drawn until the search is cleared. */
+  venues: VenueSearchResult[];
   roadworks: RoadworkMatch[];
   potholes: PotholeMatch[];
   otherDays: DayGeometry[];
@@ -164,6 +175,8 @@ export default function MapView({
   day,
   drawMode,
   draftPoints,
+  pendingPoi,
+  venues,
   roadworks,
   potholes,
   otherDays,
@@ -324,6 +337,54 @@ export default function MapView({
           </Tooltip>
         </CircleMarker>
       ))}
+
+      {venues.map((v) => (
+        <CircleMarker
+          key={`venue-${v.id}`}
+          center={[v.lat, v.lon]}
+          radius={v.preferred ? 7 : 5}
+          pathOptions={{
+            color: v.preferred ? "#b45309" : "#0891b2",
+            fillColor: v.preferred ? "#f59e0b" : "#67e8f9",
+            fillOpacity: 0.9,
+            weight: 2,
+          }}
+        >
+          <Tooltip direction="top" offset={[0, -6]}>
+            <div className="font-medium">
+              {v.preferred ? "★ " : ""}
+              {v.name}
+            </div>
+            <div className="text-xs">
+              {Math.round(v.distance_to_route_m)} m off route
+            </div>
+            {v.tags.opening_hours && <div className="text-xs">{v.tags.opening_hours}</div>}
+          </Tooltip>
+        </CircleMarker>
+      ))}
+
+      {(day?.pois ?? []).map((poi) => (
+        <CircleMarker
+          key={`poi-${poi.id}`}
+          center={[poi.lat, poi.lon]}
+          radius={7}
+          pathOptions={{ color: "#7c3aed", fillColor: "#a78bfa", fillOpacity: 1, weight: 2 }}
+        >
+          <Tooltip direction="top" offset={[0, -8]}>
+            <div className="font-medium">{poi.name}</div>
+            {poi.symbol && <div className="text-xs">{poi.symbol}</div>}
+            {poi.notes && <div className="text-xs">{poi.notes}</div>}
+          </Tooltip>
+        </CircleMarker>
+      ))}
+
+      {pendingPoi && (
+        <CircleMarker
+          center={[pendingPoi.lat, pendingPoi.lon]}
+          radius={9}
+          pathOptions={{ color: "#7c3aed", fillColor: "#7c3aed", fillOpacity: 0.4, weight: 2, dashArray: "3 4" }}
+        />
+      )}
 
       {draftPoints.length > 0 && (
         <Polyline positions={draftPoints.map(toLatLng)} pathOptions={{ color: "#ef4444", dashArray: "2 6", weight: 3 }} />

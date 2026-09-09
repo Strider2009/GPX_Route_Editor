@@ -191,6 +191,98 @@ export function useDeleteConnector(dayId: number) {
   });
 }
 
+export function useAddPoi(projectId: number, dayId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      name: string;
+      lat: number;
+      lon: number;
+      ele?: number | null;
+      symbol?: string | null;
+      notes?: string | null;
+    }) => api.addPoi(dayId, vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["day", dayId] });
+      // A POI is undoable, so the history buttons have to notice it happened.
+      qc.invalidateQueries({ queryKey: ["history", projectId] });
+    },
+  });
+}
+
+export function useUpdatePoi(projectId: number, dayId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      poiId: number;
+      name?: string;
+      lat?: number;
+      lon?: number;
+      symbol?: string | null;
+      notes?: string | null;
+    }) => api.updatePoi(vars.poiId, vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["day", dayId] });
+      qc.invalidateQueries({ queryKey: ["history", projectId] });
+    },
+  });
+}
+
+export function useDeletePoi(projectId: number, dayId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (poiId: number) => api.deletePoi(poiId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["day", dayId] });
+      qc.invalidateQueries({ queryKey: ["history", projectId] });
+    },
+  });
+}
+
+/** Venue searches are explicit, never automatic: each miss costs somebody else's
+ *  donated Overpass capacity, so nothing fetches until the user asks. */
+export function useVenueSearch(
+  dayId: number | undefined,
+  opts: { pointIndex: number; radiusM: number; kinds: string[] },
+  enabled: boolean
+) {
+  return useQuery({
+    queryKey: ["venues", dayId, opts.pointIndex, opts.radiusM, opts.kinds.join(",")],
+    queryFn: () => api.venuesNearPoint(dayId!, opts),
+    enabled: enabled && dayId != null,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+export function usePreferredVenues() {
+  return useQuery({ queryKey: ["venues-preferred"], queryFn: api.listPreferredVenues });
+}
+
+export function useSetVenuePreferred() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { venueId: number; value: boolean; note?: string | null }) =>
+      api.setVenuePreferred(vars.venueId, vars.value, vars.note),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["venues"] });
+      qc.invalidateQueries({ queryKey: ["venues-preferred"] });
+    },
+  });
+}
+
+export function useAddVenueAsPoi(projectId: number, dayId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { venueId: number; name?: string; notes?: string }) =>
+      api.addVenueAsPoi(dayId, vars.venueId, { name: vars.name, notes: vars.notes }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["day", dayId] });
+      qc.invalidateQueries({ queryKey: ["history", projectId] });
+    },
+  });
+}
+
 export function useDayRoadworks(
   dayId: number | undefined,
   opts: { targetDate?: string; bufferM?: number; minRelevance?: string; includeInactive?: boolean },

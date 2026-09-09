@@ -7,8 +7,15 @@ from sqlalchemy.orm import Session
 
 from .. import history
 from ..database import get_db
-from ..gpx_io import build_gpx, day_export_segments, parse_gpx
-from ..models import Day, Project
+from ..geo import distance_to_route
+from ..gpx_io import (
+    build_gpx,
+    day_export_segments,
+    day_export_waypoints,
+    parse_gpx,
+    parse_waypoints,
+)
+from ..models import Day, Poi, Project
 from ..route_ops import detect_circular
 from ..schemas import ReorderRequest
 from ..serializers import project_detail, project_summary
@@ -22,6 +29,48 @@ def get_project_or_404(db: Session, project_id: int) -> Project:
     if not project:
         raise HTTPException(404, "Project not found")
     return project
+
+
+def _attach_waypoints(db: Session, data: bytes, days: list[Day]) -> None:
+    """Attach any <wpt> markers in a file to whichever of its days runs closest.
+
+    GPX puts waypoints at the top level, so the format never says which track a
+    cafe belongs to. Nearest route wins, which is the right guess for a POI that
+    was placed against this trip in the first place - and it makes an export
+    from this app import back into it unchanged.
+    """
+    if not days:
+        return
+    try:
+        waypoints = parse_waypoints(data)
+    except Exception:
+        # The tracks already parsed; losing the markers is not worth failing on.
+        return
+    if not waypoints:
+        return
+
+    db.flush()  # the days need ids before anything can point at them
+    for w in waypoints:
+        best_day = None
+        best_dist = None
+        for day in days:
+            if not day.points:
+                continue
+            dist, _ = distance_to_route(w["lat"], w["lon"], day.points)
+            if best_dist is None or dist < best_dist:
+                best_day, best_dist = day, dist
+        target = best_day or days[0]
+        db.add(
+            Poi(
+                day_id=target.id,
+                name=w["name"],
+                lat=w["lat"],
+                lon=w["lon"],
+                ele=w.get("ele"),
+                symbol=w.get("symbol"),
+                notes=w.get("notes"),
+            )
+        )
 
 
 @router.post("/projects/import")
@@ -50,6 +99,7 @@ async def import_project(
         except Exception as exc:
             db.rollback()
             raise HTTPException(400, f"Could not parse '{f.filename}': {exc}") from exc
+        file_days = []
         for t in tracks:
             day = Day(
                 project_id=project.id,
@@ -61,8 +111,10 @@ async def import_project(
                 source_points=list(t["points"]),
             )
             db.add(day)
+            file_days.append(day)
             order += 1
             total_tracks += 1
+        _attach_waypoints(db, data, file_days)
 
     if total_tracks == 0:
         db.rollback()
@@ -92,20 +144,22 @@ async def add_routes_to_project(
         except Exception as exc:
             db.rollback()
             raise HTTPException(400, f"Could not parse '{f.filename}': {exc}") from exc
+        file_days = []
         for t in tracks:
-            db.add(
-                Day(
-                    project_id=project.id,
-                    name=t["name"],
-                    order_index=order,
-                    is_circular=detect_circular(t["points"]),
-                    is_locked=False,
-                    points=t["points"],
-                    source_points=list(t["points"]),
-                )
+            day = Day(
+                project_id=project.id,
+                name=t["name"],
+                order_index=order,
+                is_circular=detect_circular(t["points"]),
+                is_locked=False,
+                points=t["points"],
+                source_points=list(t["points"]),
             )
+            db.add(day)
+            file_days.append(day)
             order += 1
             added += 1
+        _attach_waypoints(db, data, file_days)
 
     if added == 0:
         db.rollback()
@@ -231,7 +285,11 @@ def export_project(project_id: int, mode: str = "combined", db: Session = Depend
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for day in days_sorted:
-                xml = build_gpx(day.name, day_export_segments(day, include_connectors=True))
+                xml = build_gpx(
+                    day.name,
+                    day_export_segments(day, include_connectors=True),
+                    waypoints=day_export_waypoints(day),
+                )
                 zf.writestr(f"{slugify(day.name)}.gpx", xml)
         buf.seek(0)
         return Response(
@@ -241,7 +299,9 @@ def export_project(project_id: int, mode: str = "combined", db: Session = Depend
         )
 
     segments = [(day.name, day.points or []) for day in days_sorted]
-    xml = build_gpx(project.name, segments)
+    # Every day's POIs, since the combined file is the whole trip in one.
+    waypoints = [w for day in days_sorted for w in day_export_waypoints(day)]
+    xml = build_gpx(project.name, segments, waypoints=waypoints)
     return Response(
         content=xml,
         media_type="application/gpx+xml",

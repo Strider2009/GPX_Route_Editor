@@ -89,6 +89,13 @@ no hobbyist tier, and komoot has no public API (partner agreements only).
 - **Connectors**: add a named "start access", "end access", or "spur" leg to a day by drawing
   points on the map - useful for a walk from the route to a hotel or cafe. Connectors are
   completely independent of the day's lock.
+- **Points of interest**: mark cafes, water stops or anything else worth finding. Click "Add POI",
+  click the map, give it a name and an optional symbol and note. POIs export as GPX waypoints
+  (`<wpt>`), so they sit beside the route rather than in it: locking, trimming, splitting and
+  reversing a day all leave them exactly where you put them. Splitting hands each POI to whichever
+  resulting day now runs closest, and merging keeps both days'. Waypoints in an imported file are
+  read back in the same way, attached to the nearest day, so an export from this app re-imports
+  unchanged.
 - **Export**: download a single day (optionally including its connectors), the whole trip as one
   combined GPX file, or the whole trip as a zip of per-day GPX files.
 

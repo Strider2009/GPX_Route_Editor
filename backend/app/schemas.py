@@ -19,6 +19,37 @@ class ConnectorUpdate(BaseModel):
     points: list[PointSchema] | None = None
 
 
+class PoiCreate(BaseModel):
+    name: str
+    lat: float
+    lon: float
+    ele: float | None = None
+    symbol: str | None = None
+    notes: str | None = None
+
+
+class PoiUpdate(BaseModel):
+    name: str | None = None
+    lat: float | None = None
+    lon: float | None = None
+    ele: float | None = None
+    symbol: str | None = None
+    notes: str | None = None
+
+
+class PreferredUpdate(BaseModel):
+    value: bool
+    note: str | None = None
+
+
+class VenueToPoiRequest(BaseModel):
+    """Overrides when saving a venue onto the route; all optional."""
+
+    name: str | None = None
+    symbol: str | None = None
+    notes: str | None = None
+
+
 class DayUpdate(BaseModel):
     name: str | None = None
     order_index: int | None = None

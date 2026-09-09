@@ -2,7 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
-from .routers import boundaries, connectors, days, potholes, projects, roadworks, strava
+from .routers import (
+    boundaries,
+    connectors,
+    days,
+    pois,
+    potholes,
+    projects,
+    roadworks,
+    strava,
+    venues,
+)
 
 app = FastAPI(title="GPX Route Editor")
 
@@ -27,6 +37,8 @@ def health():
 app.include_router(projects.router, prefix="/api")
 app.include_router(days.router, prefix="/api")
 app.include_router(connectors.router, prefix="/api")
+app.include_router(pois.router, prefix="/api")
+app.include_router(venues.router, prefix="/api")
 app.include_router(roadworks.router, prefix="/api")
 app.include_router(strava.router, prefix="/api")
 app.include_router(potholes.router, prefix="/api")

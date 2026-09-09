@@ -11,7 +11,7 @@ import zlib
 
 from sqlalchemy.orm import Session
 
-from .models import Connector, Day, HistorySnapshot, Project
+from .models import Connector, Day, HistorySnapshot, Poi, Project
 
 # Plenty for a working session without letting the database grow unbounded.
 MAX_ENTRIES = 40
@@ -31,6 +31,18 @@ def _day_state(day: Day) -> dict:
         "connectors": [
             {"id": c.id, "name": c.name, "type": c.type, "points": c.points or []}
             for c in day.connectors
+        ],
+        "pois": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "lat": p.lat,
+                "lon": p.lon,
+                "ele": p.ele,
+                "symbol": p.symbol,
+                "notes": p.notes,
+            }
+            for p in day.pois
         ],
     }
 
@@ -89,6 +101,27 @@ def apply(db: Session, project_id: int, blob: bytes) -> None:
                         name=c["name"],
                         type=c["type"],
                         points=c["points"],
+                    )
+                )
+
+        # Same wholesale rebuild for POIs. `.get` rather than `[...]`: snapshots
+        # taken before POIs existed have no such key, and undoing back past the
+        # upgrade must not blow up.
+        for poi in db.query(Poi).filter(Poi.day_id.in_(day_ids)).all():
+            db.delete(poi)
+        db.flush()
+        for want in wanted.values():
+            for p in want.get("pois", []):
+                db.add(
+                    Poi(
+                        id=p["id"],
+                        day_id=want["id"],
+                        name=p["name"],
+                        lat=p["lat"],
+                        lon=p["lon"],
+                        ele=p.get("ele"),
+                        symbol=p.get("symbol"),
+                        notes=p.get("notes"),
                     )
                 )
 

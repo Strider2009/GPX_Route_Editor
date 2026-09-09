@@ -5,6 +5,8 @@ import { useUIStore } from "../state/uiStore";
 import Toolbar from "../components/Toolbar";
 import DayPanel from "../components/DayPanel";
 import ConnectorPanel from "../components/ConnectorPanel";
+import PoiPanel from "../components/PoiPanel";
+import VenuePanel from "../components/VenuePanel";
 import MapView from "../components/MapView";
 import PointList from "../components/PointList";
 import PointContextMenu, { type ContextTarget } from "../components/PointContextMenu";
@@ -13,7 +15,7 @@ import PotholePanel from "../components/PotholePanel";
 import ElevationProfile from "../components/ElevationProfile";
 import DaySummary from "../components/DaySummary";
 import BoundaryPanel from "../components/BoundaryPanel";
-import type { Point, PotholeMatch, RoadworkMatch } from "../api/types";
+import type { Point, PotholeMatch, RoadworkMatch, VenueSearchResult } from "../api/types";
 
 export default function ProjectEditorPage() {
   const { projectId } = useParams();
@@ -65,9 +67,12 @@ export default function ProjectEditorPage() {
 
   const [draftPoints, setDraftPoints] = useState<Point[]>([]);
   const [drawingConnectorId, setDrawingConnectorId] = useState<number | "new" | null>(null);
+  const [placingPoi, setPlacingPoi] = useState(false);
+  const [pendingPoi, setPendingPoi] = useState<{ lat: number; lon: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextTarget | null>(null);
   const [roadworks, setRoadworks] = useState<RoadworkMatch[]>([]);
   const [potholes, setPotholes] = useState<PotholeMatch[]>([]);
+  const [venues, setVenues] = useState<VenueSearchResult[]>([]);
 
   useEffect(() => {
     setContextMenu(null);
@@ -98,6 +103,17 @@ export default function ProjectEditorPage() {
               setDrawingConnectorId={setDrawingConnectorId}
             />
           )}
+          {day && (
+            <PoiPanel
+              projectId={pid}
+              day={day}
+              pendingPoi={pendingPoi}
+              setPendingPoi={setPendingPoi}
+              placing={placingPoi}
+              setPlacing={setPlacingPoi}
+            />
+          )}
+          {day && <VenuePanel projectId={pid} day={day} onResultsChange={setVenues} />}
           {day && <RoadworksPanel dayId={day.id} onMatchesChange={setRoadworks} />}
           {day && <PotholePanel dayId={day.id} onMatchesChange={setPotholes} />}
         </aside>
@@ -105,12 +121,22 @@ export default function ProjectEditorPage() {
           <div className="flex-1 relative">
           <MapView
             day={day}
-            drawMode={drawingConnectorId !== null}
+            drawMode={drawingConnectorId !== null || placingPoi}
             draftPoints={draftPoints}
+            pendingPoi={pendingPoi}
+            venues={venues}
             roadworks={roadworks}
             potholes={potholes}
             otherDays={otherDays}
-            onMapClick={(lat, lon) => setDraftPoints([...draftPoints, { lat, lon, ele: null, time: null }])}
+            onMapClick={(lat, lon) => {
+              // Placing a POI wins: it is the more specific mode, and the two are
+              // never usefully active at once.
+              if (placingPoi) {
+                setPendingPoi({ lat, lon });
+                return;
+              }
+              setDraftPoints([...draftPoints, { lat, lon, ele: null, time: null }]);
+            }}
             onPointContextMenu={(pick, x, y) =>
               setContextMenu({
                 otherDayId: pick.otherDayId,

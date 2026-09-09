@@ -1,6 +1,7 @@
 import type {
   ConnectorType,
   DayDetail,
+  Poi,
   Point,
   ProjectDetail,
   ProjectSummary,
@@ -17,6 +18,8 @@ import type {
   StravaRoute,
   StravaStatus,
   TilesForDay,
+  Venue,
+  VenueSearch,
 } from "./types";
 
 const BASE = "/api";
@@ -140,6 +143,40 @@ export const api = {
   updateConnector: (connectorId: number, data: { name?: string; points?: Point[] }) =>
     request(`/connectors/${connectorId}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteConnector: (connectorId: number) => request<void>(`/connectors/${connectorId}`, { method: "DELETE" }),
+
+  addPoi: (
+    dayId: number,
+    data: { name: string; lat: number; lon: number; ele?: number | null; symbol?: string | null; notes?: string | null }
+  ) => request<DayDetail>(`/days/${dayId}/pois`, { method: "POST", body: JSON.stringify(data) }),
+  updatePoi: (
+    poiId: number,
+    data: { name?: string; lat?: number; lon?: number; symbol?: string | null; notes?: string | null }
+  ) => request<Poi>(`/pois/${poiId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deletePoi: (poiId: number) => request<void>(`/pois/${poiId}`, { method: "DELETE" }),
+
+  venuesNearPoint: (
+    dayId: number,
+    opts: { pointIndex: number; radiusM: number; kinds: string[]; refresh?: boolean }
+  ) => {
+    const q = new URLSearchParams({
+      point_index: String(opts.pointIndex),
+      radius_m: String(opts.radiusM),
+      kinds: opts.kinds.join(","),
+    });
+    if (opts.refresh) q.set("refresh", "true");
+    return request<VenueSearch>(`/days/${dayId}/venues?${q.toString()}`);
+  },
+  listPreferredVenues: () => request<Venue[]>("/venues/preferred"),
+  setVenuePreferred: (venueId: number, value: boolean, note?: string | null) =>
+    request<Venue>(`/venues/${venueId}/preferred`, {
+      method: "POST",
+      body: JSON.stringify({ value, note }),
+    }),
+  addVenueAsPoi: (dayId: number, venueId: number, data: { name?: string; notes?: string } = {}) =>
+    request<DayDetail>(`/days/${dayId}/venues/${venueId}/add`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   getDayRoadworks: (
     dayId: number,

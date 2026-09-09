@@ -34,14 +34,64 @@ export interface Connector {
   points: Point[];
 }
 
+export interface Poi {
+  id: number;
+  day_id: number;
+  name: string;
+  lat: number;
+  lon: number;
+  ele: number | null;
+  /** GPX <sym>: an icon hint. Free text, because devices disagree on the vocabulary. */
+  symbol: string | null;
+  notes: string | null;
+}
+
 export interface DayDetail extends DaySummary {
   points: Point[];
   connectors: Connector[];
+  pois: Poi[];
   /** The wider route this day was trimmed from; empty when nothing was trimmed. */
   source_points: Point[];
   is_trimmed: boolean;
   source_start: number;
   source_end: number;
+}
+
+export type VenueKind = "cafe" | "food" | "water" | "toilets" | "bicycle";
+
+export interface Venue {
+  id: number;
+  source: string;
+  external_id: string;
+  name: string;
+  kind: VenueKind;
+  lat: number;
+  lon: number;
+  /** Selected OSM tags: opening_hours, brand, outdoor_seating, website and so on. */
+  tags: Record<string, string>;
+  preferred: boolean;
+  user_note: string | null;
+  has_rating_ref: boolean;
+}
+
+export interface VenueSearchResult extends Venue {
+  distance_m: number;
+  /** How far off the route it sits, which decides whether the detour is worth it. */
+  distance_to_route_m: number;
+  nearest_point_index: number;
+}
+
+export interface VenueSearch {
+  day_id: number;
+  point_index: number;
+  lat: number;
+  lon: number;
+  radius_m: number;
+  kinds: VenueKind[];
+  from_cache: boolean;
+  cached_at: string | null;
+  count: number;
+  venues: VenueSearchResult[];
 }
 
 export interface ProjectSummary {
