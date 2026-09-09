@@ -1,4 +1,4 @@
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 # Install from the lockfile so the image contains exactly the dependency versions
 # that CI audited. `npm install` would re-resolve the caret ranges at build time,
