@@ -57,6 +57,53 @@ export interface DayDetail extends DaySummary {
   source_end: number;
 }
 
+export interface Climb {
+  start_index: number;
+  end_index: number;
+  length_m: number;
+  gain_m: number;
+  avg_gradient: number;
+  max_gradient: number;
+  /** "4" | "3" | "2" | "1" | "HC", or null when it is too gentle to categorise. */
+  category: string | null;
+  start_ele_m: number;
+  top_ele_m: number;
+  at_km: number;
+}
+
+export interface BriefingPlace {
+  name: string;
+  place: string;
+  lat: number;
+  lon: number;
+  distance_m: number;
+  at_index: number;
+  at_km: number;
+}
+
+export interface Briefing {
+  day_id: number;
+  name: string;
+  is_circular: boolean;
+  distance_km: number;
+  ascent_m: number;
+  descent_m: number;
+  point_count: number;
+  profile: { has_elevation: boolean; min_ele_m?: number; max_ele_m?: number };
+  climbs: Climb[];
+  places: BriefingPlace[];
+  /** Set when Overpass was unreachable; everything else is still valid. */
+  places_error: string | null;
+  pois: { name: string; symbol: string | null; notes: string | null }[];
+  connectors: { name: string; type: string }[];
+}
+
+export interface BriefingNarrative {
+  day_id: number;
+  facts: Briefing;
+  briefing: string;
+}
+
 export type VenueKind = "cafe" | "food" | "water" | "toilets" | "bicycle";
 
 export interface Venue {

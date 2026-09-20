@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .database import init_db
 from .routers import (
     boundaries,
+    briefing,
     connectors,
     days,
     pois,
@@ -39,6 +40,7 @@ app.include_router(days.router, prefix="/api")
 app.include_router(connectors.router, prefix="/api")
 app.include_router(pois.router, prefix="/api")
 app.include_router(venues.router, prefix="/api")
+app.include_router(briefing.router, prefix="/api")
 app.include_router(roadworks.router, prefix="/api")
 app.include_router(strava.router, prefix="/api")
 app.include_router(potholes.router, prefix="/api")

@@ -10,6 +10,12 @@ services:
       - STRAVA_REFRESH_TOKEN=${STRAVA_REFRESH_TOKEN:-}
       - STRAVA_REDIRECT_URI=${STRAVA_REDIRECT_URI:-http://localhost:8090/api/strava/callback}
       - APP_URL=${APP_URL:-http://localhost:8090}
+      # Optional. Anything added to .env must be listed here too, or the
+      # container never sees it however many times the stack is restarted.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - BRIEFING_MODEL=${BRIEFING_MODEL:-}
+      - TRIPADVISOR_API_KEY=${TRIPADVISOR_API_KEY:-}
+      - OVERPASS_BASE=${OVERPASS_BASE:-}
     volumes:
       - ./data:/data
     ports:

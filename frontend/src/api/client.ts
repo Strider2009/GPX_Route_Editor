@@ -1,4 +1,6 @@
 import type {
+  Briefing,
+  BriefingNarrative,
   ConnectorType,
   DayDetail,
   Poi,
@@ -166,6 +168,31 @@ export const api = {
     if (opts.refresh) q.set("refresh", "true");
     return request<VenueSearch>(`/days/${dayId}/venues?${q.toString()}`);
   },
+  dayBriefing: (dayId: number, opts: { includePlaces?: boolean; refresh?: boolean } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.includePlaces === false) q.set("include_places", "false");
+    if (opts.refresh) q.set("refresh", "true");
+    return request<Briefing>(`/days/${dayId}/briefing?${q.toString()}`);
+  },
+  dayBriefingNarrative: (dayId: number, refresh = false) =>
+    request<BriefingNarrative>(
+      `/days/${dayId}/briefing/narrative${refresh ? "?refresh=true" : ""}`,
+      { method: "POST" }
+    ),
+  briefingCacheStatus: () =>
+    request<{ narratives: number; place_lookups: number; newest_narrative_at: string | null }>(
+      "/briefing/cache"
+    ),
+  clearBriefingCache: (opts: { narratives?: boolean; places?: boolean } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.narratives === false) q.set("narratives", "false");
+    if (opts.places === false) q.set("places", "false");
+    return request<{ narratives: number; place_lookups: number }>(
+      `/briefing/cache?${q.toString()}`,
+      { method: "DELETE" }
+    );
+  },
+
   listPreferredVenues: () => request<Venue[]>("/venues/preferred"),
   setVenuePreferred: (venueId: number, value: boolean, note?: string | null) =>
     request<Venue>(`/venues/${venueId}/preferred`, {

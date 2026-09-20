@@ -239,6 +239,57 @@ export function useDeletePoi(projectId: number, dayId: number) {
   });
 }
 
+/** The facts are free to compute but the place lookup hits Overpass, so this
+ *  only runs once the user has asked for a briefing. */
+export function useBriefing(dayId: number | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["briefing", dayId],
+    queryFn: () => api.dayBriefing(dayId!),
+    enabled: enabled && dayId != null,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+/** Writing it up costs a model call, so it is always an explicit action.
+ *  `refresh` bypasses the cache and pays for a fresh one deliberately. */
+export function useBriefingNarrative(dayId: number) {
+  return useMutation({
+    mutationFn: (vars: { refresh?: boolean } = {}) =>
+      api.dayBriefingNarrative(dayId, vars.refresh ?? false),
+  });
+}
+
+/** Re-ask Overpass for the places and drop the result straight into the cache
+ *  the panel reads from, so the dialog updates without a second round trip. */
+export function useRefreshBriefingFacts(dayId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.dayBriefing(dayId, { refresh: true }),
+    onSuccess: (data) => qc.setQueryData(["briefing", dayId], data),
+  });
+}
+
+export function useBriefingCacheStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: ["briefing-cache"],
+    queryFn: api.briefingCacheStatus,
+    enabled,
+  });
+}
+
+export function useClearBriefingCache() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (opts: { narratives?: boolean; places?: boolean } = {}) =>
+      api.clearBriefingCache(opts),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["briefing"] });
+      qc.invalidateQueries({ queryKey: ["briefing-cache"] });
+    },
+  });
+}
+
 /** Venue searches are explicit, never automatic: each miss costs somebody else's
  *  donated Overpass capacity, so nothing fetches until the user asks. */
 export function useVenueSearch(

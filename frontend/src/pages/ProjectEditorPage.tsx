@@ -7,6 +7,7 @@ import DayPanel from "../components/DayPanel";
 import ConnectorPanel from "../components/ConnectorPanel";
 import PoiPanel from "../components/PoiPanel";
 import VenuePanel from "../components/VenuePanel";
+import BriefingPanel from "../components/BriefingPanel";
 import MapView from "../components/MapView";
 import PointList from "../components/PointList";
 import PointContextMenu, { type ContextTarget } from "../components/PointContextMenu";
@@ -91,6 +92,7 @@ export default function ProjectEditorPage() {
       <div className="flex-1 flex overflow-hidden bg-page">
         <aside className="w-80 shrink-0 overflow-y-auto bg-page border-r border-line flex flex-col gap-3 p-3">
           {day && <DaySummary day={day} dayNumber={dayNumber} />}
+          {day && <BriefingPanel day={day} />}
           <DayPanel projectId={pid} days={project.days} />
           <BoundaryPanel projectId={pid} />
           {day && (

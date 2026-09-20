@@ -11,15 +11,20 @@ whether you can leave a bike outside, whether there is water.
 """
 
 import json
+import math
 import os
+import time
 import urllib.error
 import urllib.parse
 
 from . import http_client
 
-BASE = os.environ.get("OVERPASS_BASE", "https://overpass-api.de/api/interpreter")
-USER_AGENT = os.environ.get(
-    "OVERPASS_UA", "personal-gpx-route-planner/1.0 (personal cycling route planning)"
+# `or` rather than a get() default: docker-compose passes unset optional vars
+# through as empty strings, which would otherwise blank these out entirely.
+BASE = os.environ.get("OVERPASS_BASE") or "https://overpass-api.de/api/interpreter"
+USER_AGENT = (
+    os.environ.get("OVERPASS_UA")
+    or "personal-gpx-route-planner/1.0 (personal cycling route planning)"
 )
 
 # What each kind means in OSM tags. Kept explicit rather than clever: these are
@@ -149,24 +154,7 @@ def search(lat: float, lon: float, radius_m: int, kinds: list[str]) -> list[dict
     if "nwr" not in query:
         return []
 
-    data = urllib.parse.urlencode({"data": query}).encode()
-    req = http_client.build_request(
-        BASE,
-        data=data,
-        method="POST",
-        headers={"User-Agent": USER_AGENT, "Content-Type": "application/x-www-form-urlencoded"},
-    )
-    try:
-        with http_client.urlopen(req, timeout=60.0) as resp:
-            payload = json.loads(resp.read().decode("utf-8", "replace"))
-    except urllib.error.HTTPError as exc:
-        if exc.code in (429, 504):
-            raise OverpassError(
-                "Overpass is rate-limiting or overloaded. Wait a moment and try again."
-            ) from exc
-        raise OverpassError(f"Overpass returned HTTP {exc.code}") from exc
-    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
-        raise OverpassError(f"Could not reach Overpass: {exc}") from exc
+    payload = _post(query)
 
     out = []
     seen = set()
@@ -217,3 +205,126 @@ def _kept_tags(tags: dict) -> dict:
     if tags.get("man_made") == "water_tap" and "fountain" not in kept:
         kept.setdefault("fountain", "tap")
     return kept
+
+
+# Settlements, largest first. A briefing wants "through Chew Magna", not a list
+# of every hamlet within a mile.
+#
+# `suburb` is deliberately absent: a city contributes one useful name, but its
+# suburbs contribute a dozen at the same point on the route. Canterbury alone
+# returned six, all at 0.0 km, which buries the places that actually mark
+# progress. The city itself is still named.
+PLACE_RANKS = ["city", "town", "village", "hamlet"]
+
+
+def _thin(points: list[dict], every_m: float = 500.0) -> list[dict]:
+    """Every ~500 m of the route.
+
+    Overpass takes a polyline for `around`, which is far tighter than a bounding
+    box on a route that bends - but the query is sent as text, so a 5,000-point
+    day has to be thinned before it goes in.
+    """
+    from .geo import haversine
+
+    if not points:
+        return []
+    kept = [points[0]]
+    run = 0.0
+    for a, b in zip(points, points[1:], strict=False):
+        run += haversine(a, b)
+        if run >= every_m:
+            kept.append(b)
+            run = 0.0
+    if kept[-1] is not points[-1]:
+        kept.append(points[-1])
+    return kept
+
+
+def _bbox(points: list[dict], pad_m: float) -> tuple[float, float, float, float]:
+    """South, west, north, east around the route, padded by roughly pad_m."""
+    lats = [p["lat"] for p in points]
+    lons = [p["lon"] for p in points]
+    mid = (min(lats) + max(lats)) / 2
+    dlat = pad_m / 111_320.0
+    dlon = pad_m / max(1.0, 111_320.0 * math.cos(math.radians(mid)))
+    return (min(lats) - dlat, min(lons) - dlon, max(lats) + dlat, max(lons) + dlon)
+
+
+def _post(query: str, attempts: int = 3) -> dict:
+    """Send a query, retrying the transient failures.
+
+    429 and 504 both mean "not now" rather than "no": the public instances shed
+    load aggressively, and a short wait usually clears it.
+    """
+    data = urllib.parse.urlencode({"data": query}).encode()
+    last: Exception | None = None
+
+    for attempt in range(attempts):
+        if attempt:
+            time.sleep(2.0 * attempt)
+        req = http_client.build_request(
+            BASE,
+            data=data,
+            method="POST",
+            headers={
+                "User-Agent": USER_AGENT,
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        )
+        try:
+            with http_client.urlopen(req, timeout=90.0) as resp:
+                return json.loads(resp.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 504):
+                raise OverpassError(f"Overpass returned HTTP {exc.code}") from exc
+            last = exc
+        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+            last = exc
+
+    raise OverpassError(
+        f"Overpass is busy and did not answer after {attempts} attempts. "
+        f"Try again shortly, or set OVERPASS_BASE to your own instance. ({last})"
+    )
+
+
+def places_along_route(points: list[dict], buffer_m: int = 1200) -> list[dict]:
+    """Named settlements near the route, unordered and unfiltered.
+
+    Asked for as a bounding box rather than as a corridor around the polyline.
+    `around:` with a long coordinate list cannot use the spatial index and takes
+    seconds where a box takes milliseconds - on a full day's route that is the
+    difference between an answer and a gateway timeout. The box is wider than
+    the route, so the caller filters by real distance to the line.
+    """
+    thinned = _thin(points)
+    if not thinned:
+        return []
+    south, west, north, east = _bbox(thinned, buffer_m)
+    kinds = "|".join(PLACE_RANKS)
+    query = f"""[out:json][timeout:40];
+node["place"~"^({kinds})$"]["name"]({south:.5f},{west:.5f},{north:.5f},{east:.5f});
+out tags center;"""
+
+    payload = _post(query)
+
+    out = []
+    for el in payload.get("elements", []):
+        tags = el.get("tags") or {}
+        name = tags.get("name")
+        place = tags.get("place")
+        if not name or place not in PLACE_RANKS:
+            continue
+        lat, lon = el.get("lat"), el.get("lon")
+        if lat is None or lon is None:
+            continue
+        out.append(
+            {
+                "name": name,
+                "place": place,
+                "rank": PLACE_RANKS.index(place),
+                "lat": float(lat),
+                "lon": float(lon),
+                "population": tags.get("population"),
+            }
+        )
+    return out

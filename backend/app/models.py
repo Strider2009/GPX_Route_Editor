@@ -286,3 +286,40 @@ class VenueArea(Base):
     kinds: Mapped[str] = mapped_column(String)
     found: Mapped[int] = mapped_column(Integer, default=0)
     fetched_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+
+
+class PlaceLookup(Base):
+    """Cached settlement lookups for a stretch of route.
+
+    Keyed by the shape of the route rather than by day id, so editing a day
+    invalidates it naturally and two days over the same ground share one entry.
+    Overpass throttles hard - a briefing that re-queried on every open would be
+    both slow and rude.
+    """
+
+    __tablename__ = "place_lookups"
+    __table_args__ = (UniqueConstraint("key", name="uq_place_lookup_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String, index=True)
+    payload: Mapped[list] = mapped_column(JSON, default=list)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+
+
+class NarrativeCache(Base):
+    """A written briefing, keyed by the exact facts it was written from.
+
+    An approximate rule ("regenerate if things changed a bit") needs a judgement
+    call about what counts as changed. Hashing the prompt avoids that entirely:
+    identical facts reuse the text, and any change at all - a metre of route, a
+    new POI, a different village - produces a different key and a fresh write.
+    """
+
+    __tablename__ = "narrative_cache"
+    __table_args__ = (UniqueConstraint("key", name="uq_narrative_cache_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String, index=True)
+    model: Mapped[str] = mapped_column(String)
+    text: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
