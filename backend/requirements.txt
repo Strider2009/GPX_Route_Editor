@@ -1,6 +1,6 @@
 fastapi==0.141.1
-uvicorn[standard]==0.52.4
-sqlalchemy==2.0.52
+uvicorn[standard]==0.53.0
+sqlalchemy==2.0.54
 gpxpy==1.6.2
 # Handles the multipart GPX uploads; <0.0.31 has several parser CVEs.
 python-multipart==0.0.32
