@@ -14,6 +14,10 @@ interface UIState {
   mode: Mode;
   /** Bumped only when the user actively picks a point, which is the only time the map moves. */
   panRequestId: number;
+  /** The POI picked on the map or in the panel; highlighted in both. */
+  selectedPoiId: number | null;
+  /** Bumped when a POI is picked from the panel, so the map brings it into view. */
+  poiPanRequestId: number;
   setSelectedDay: (id: number | null) => void;
   setSelectedPoint: (index: number | null) => void;
   setHoveredPoint: (index: number | null) => void;
@@ -21,6 +25,8 @@ interface UIState {
   selectPointQuietly: (index: number) => void;
   setRangeStart: (index: number | null) => void;
   setMode: (m: Mode) => void;
+  /** pan: move the map to it - wanted from the panel, not when it was clicked on the map. */
+  selectPoi: (id: number | null, pan?: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -31,6 +37,8 @@ export const useUIStore = create<UIState>((set) => ({
   rangeStart: null,
   mode: "select",
   panRequestId: 0,
+  selectedPoiId: null,
+  poiPanRequestId: 0,
   setSelectedDay: (id) =>
     set({
       selectedDayId: id,
@@ -38,6 +46,7 @@ export const useUIStore = create<UIState>((set) => ({
       hoveredPointIndex: null,
       shadowPoint: null,
       rangeStart: null,
+      selectedPoiId: null,
     }),
   setHoveredPoint: (index) => set({ hoveredPointIndex: index }),
   setShadowPoint: (p) => set({ shadowPoint: p }),
@@ -50,4 +59,6 @@ export const useUIStore = create<UIState>((set) => ({
   selectPointQuietly: (index) => set({ selectedPointIndex: index, shadowPoint: null }),
   setRangeStart: (index) => set({ rangeStart: index }),
   setMode: (m) => set({ mode: m }),
+  selectPoi: (id, pan = false) =>
+    set((s) => ({ selectedPoiId: id, poiPanRequestId: pan ? s.poiPanRequestId + 1 : s.poiPanRequestId })),
 }));

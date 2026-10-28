@@ -170,6 +170,10 @@ export const api = {
     data: { name?: string; lat?: number; lon?: number; symbol?: string | null; notes?: string | null }
   ) => request<Poi>(`/pois/${poiId}`, { method: "PUT", body: JSON.stringify(data) }),
   deletePoi: (poiId: number) => request<void>(`/pois/${poiId}`, { method: "DELETE" }),
+  describePois: (dayId: number) =>
+    request<{ updated: number; places_error: string | null; day: DayDetail }>(`/days/${dayId}/pois/describe`, {
+      method: "POST",
+    }),
 
   venuesNearPoint: (
     dayId: number,

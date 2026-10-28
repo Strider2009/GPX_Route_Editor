@@ -229,6 +229,18 @@ export function useUpdatePoi(projectId: number, dayId: number) {
   });
 }
 
+/** Name and annotate unnamed waypoints from the roads and places around them. */
+export function useDescribePois(projectId: number, dayId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.describePois(dayId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["day", dayId] });
+      qc.invalidateQueries({ queryKey: ["history", projectId] });
+    },
+  });
+}
+
 export function useDeletePoi(projectId: number, dayId: number) {
   const qc = useQueryClient();
   return useMutation({

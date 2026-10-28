@@ -158,6 +158,18 @@ function MapInteractions({
   return null;
 }
 
+/** Bring a POI into view when it is picked from the panel. */
+function PanToPoi({ poi, requestId }: { poi: { lat: number; lon: number } | null; requestId: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!poi || requestId === 0) return;
+    map.panTo([poi.lat, poi.lon], { animate: true, duration: 0.4 });
+    // Only a new request should move the map, not the POI being renamed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestId, map]);
+  return null;
+}
+
 interface Props {
   day: DayDetail | undefined;
   drawMode: boolean;
@@ -195,6 +207,10 @@ export default function MapView({
   const shadowPoint = useUIStore((s) => s.shadowPoint);
   const panRequestId = useUIStore((s) => s.panRequestId);
   const hoveredPointIndex = useUIStore((s) => s.hoveredPointIndex);
+  const selectedPoiId = useUIStore((s) => s.selectedPoiId);
+  const poiPanRequestId = useUIStore((s) => s.poiPanRequestId);
+  const selectPoi = useUIStore((s) => s.selectPoi);
+  const selectedPoi = day?.pois.find((p) => p.id === selectedPoiId) ?? null;
 
   const points = day?.points ?? [];
   const selectedPoint = selectedPointIndex != null ? points[selectedPointIndex] ?? null : null;
@@ -381,20 +397,33 @@ export default function MapView({
         </CircleMarker>
       ))}
 
-      {(day?.pois ?? []).map((poi) => (
-        <CircleMarker
-          key={`poi-${poi.id}`}
-          center={[poi.lat, poi.lon]}
-          radius={7}
-          pathOptions={{ color: "#7c3aed", fillColor: "#a78bfa", fillOpacity: 1, weight: 2 }}
-        >
-          <Tooltip direction="top" offset={[0, -8]}>
-            <div className="font-medium">{poi.name}</div>
-            {poi.symbol && <div className="text-xs">{poi.symbol}</div>}
-            {poi.notes && <div className="text-xs">{poi.notes}</div>}
-          </Tooltip>
-        </CircleMarker>
-      ))}
+      <PanToPoi poi={selectedPoi} requestId={poiPanRequestId} />
+      {(day?.pois ?? []).map((poi) => {
+        const selected = poi.id === selectedPoiId;
+        return (
+          <CircleMarker
+            // Re-keyed on selection so the highlighted marker is drawn on top.
+            key={`poi-${poi.id}-${selected}`}
+            center={[poi.lat, poi.lon]}
+            radius={selected ? 10 : 7}
+            // Kept off the map's own click handler, which would select a route point instead.
+            bubblingMouseEvents={false}
+            pathOptions={
+              selected
+                ? { color: "#1c1c1c", fillColor: "#7c3aed", fillOpacity: 1, weight: 3 }
+                : { color: "#7c3aed", fillColor: "#a78bfa", fillOpacity: 1, weight: 2 }
+            }
+            eventHandlers={{ click: () => selectPoi(selected ? null : poi.id) }}
+          >
+            <Tooltip direction="top" offset={[0, -8]}>
+              <div className="font-medium">{poi.name}</div>
+              {poi.symbol && <div className="text-xs">{poi.symbol}</div>}
+              {/* The full notes live in the panel; a hover only needs a taste. */}
+              {poi.notes && <div className="text-xs max-w-64 whitespace-normal line-clamp-2">{poi.notes}</div>}
+            </Tooltip>
+          </CircleMarker>
+        );
+      })}
 
       {pendingPoi && (
         <CircleMarker

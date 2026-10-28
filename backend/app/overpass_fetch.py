@@ -253,8 +253,8 @@ def _bbox(points: list[dict], pad_m: float) -> tuple[float, float, float, float]
 def _post(query: str, attempts: int = 3) -> dict:
     """Send a query, retrying the transient failures.
 
-    429 and 504 both mean "not now" rather than "no": the public instances shed
-    load aggressively, and a short wait usually clears it.
+    429, 502, 503 and 504 all mean "not now" rather than "no": the public
+    instances shed load aggressively, and a short wait usually clears it.
     """
     data = urllib.parse.urlencode({"data": query}).encode()
     last: Exception | None = None
@@ -275,7 +275,7 @@ def _post(query: str, attempts: int = 3) -> dict:
             with http_client.urlopen(req, timeout=90.0) as resp:
                 return json.loads(resp.read().decode("utf-8", "replace"))
         except urllib.error.HTTPError as exc:
-            if exc.code not in (429, 504):
+            if exc.code not in (429, 502, 503, 504):
                 raise OverpassError(f"Overpass returned HTTP {exc.code}") from exc
             last = exc
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
