@@ -1,5 +1,6 @@
 import "leaflet/dist/leaflet.css";
-import { useEffect, useRef } from "react";
+import L from "leaflet";
+import { useEffect, useRef, useState } from "react";
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import type {
   DayDetail,
@@ -201,9 +202,13 @@ export default function MapView({
   const colorOf = (dayId: number | undefined) =>
     (dayId != null ? dayColors.get(dayId) : undefined) ?? dayColor(0);
   const showVertices = points.length > 0 && points.length <= MAX_VERTEX_MARKERS;
+  // Leaflet only draws lines a little beyond the visible area (10% by default) and
+  // fills in the rest when a pan ends, so the route looked cut off mid-drag. Draw a
+  // full screen's worth around the view instead.
+  const [renderer] = useState(() => L.svg({ padding: 1 }));
 
   return (
-    <MapContainer center={[51.5, 0.5]} zoom={9} className="h-full w-full">
+    <MapContainer center={[51.5, 0.5]} zoom={9} renderer={renderer} className="h-full w-full">
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
