@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { DaySummary } from "../api/types";
 import { useUIStore } from "../state/uiStore";
+import { dayColor } from "../lib/dayColors";
 import {
   useDeleteDay,
   useMergeDays,
@@ -110,6 +111,11 @@ export default function DayPanel({ projectId, days }: Props) {
 
               <button onClick={() => setSelectedDay(day.id)} className="flex-1 text-left py-1 min-w-0">
                 <div className="flex items-center gap-1">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: dayColor(position) }}
+                    title="Route colour on the map"
+                  />
                   <span className="text-ink-faint text-xs shrink-0">{position + 1}.</span>
                   <span className="font-medium truncate">{day.name}</span>
                   {day.is_circular && (

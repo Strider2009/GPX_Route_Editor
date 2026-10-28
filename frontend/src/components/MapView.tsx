@@ -11,6 +11,7 @@ import type {
 } from "../api/types";
 import { useUIStore } from "../state/uiStore";
 import { haversine } from "../lib/geo";
+import { dayColor } from "../lib/dayColors";
 import { RELEVANCE_COLORS } from "./RoadworksPanel";
 import { POTHOLE_COLOR } from "./PotholePanel";
 
@@ -167,6 +168,8 @@ interface Props {
   roadworks: RoadworkMatch[];
   potholes: PotholeMatch[];
   otherDays: DayGeometry[];
+  /** Route colour for each day, keyed by day id, so the day split reads at a glance. */
+  dayColors: Map<number, string>;
   onMapClick: (lat: number, lon: number) => void;
   onPointContextMenu: (pick: Pick, screenX: number, screenY: number) => void;
 }
@@ -180,6 +183,7 @@ export default function MapView({
   roadworks,
   potholes,
   otherDays,
+  dayColors,
   onMapClick,
   onPointContextMenu,
 }: Props) {
@@ -194,6 +198,8 @@ export default function MapView({
   const points = day?.points ?? [];
   const selectedPoint = selectedPointIndex != null ? points[selectedPointIndex] ?? null : null;
   const hoveredPoint = hoveredPointIndex != null ? points[hoveredPointIndex] ?? null : null;
+  const colorOf = (dayId: number | undefined) =>
+    (dayId != null ? dayColors.get(dayId) : undefined) ?? dayColor(0);
   const showVertices = points.length > 0 && points.length <= MAX_VERTEX_MARKERS;
 
   return (
@@ -220,13 +226,20 @@ export default function MapView({
         <Polyline
           key={`shadow-${other.day_id}`}
           positions={other.points.map((p) => [p[0], p[1]] as [number, number])}
-          pathOptions={{ color: "#475569", weight: 4, opacity: 0.85, dashArray: "9 6" }}
+          pathOptions={{ color: colorOf(other.day_id), weight: 4, opacity: 0.75, dashArray: "9 6" }}
           interactive={false}
         />
       ))}
 
       {points.length > 1 && (
-        <Polyline positions={points.map(toLatLng)} pathOptions={{ color: "#2563eb", weight: 4 }} />
+        <>
+          <Polyline
+            positions={points.map(toLatLng)}
+            pathOptions={{ color: "#ffffff", weight: 9, opacity: 0.8 }}
+            interactive={false}
+          />
+          <Polyline positions={points.map(toLatLng)} pathOptions={{ color: colorOf(day?.id), weight: 5 }} />
+        </>
       )}
       <ResizeWatcher />
       <FitButton points={points} />

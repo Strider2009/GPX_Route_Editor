@@ -16,6 +16,7 @@ import PotholePanel from "../components/PotholePanel";
 import ElevationProfile from "../components/ElevationProfile";
 import DaySummary from "../components/DaySummary";
 import BoundaryPanel from "../components/BoundaryPanel";
+import { dayColorMap } from "../lib/dayColors";
 import type { Point, PotholeMatch, RoadworkMatch, VenueSearchResult } from "../api/types";
 
 export default function ProjectEditorPage() {
@@ -40,6 +41,7 @@ export default function ProjectEditorPage() {
   const { data: geometry } = useProjectGeometry(pid);
   // Everything except the day being edited is drawn behind it as shadow.
   const otherDays = (geometry?.days ?? []).filter((d) => d.day_id !== selectedDayId);
+  const dayColors = dayColorMap(project?.days ?? []);
 
   const orderedDays = [...(geometry?.days ?? [])].sort((a, b) => a.order_index - b.order_index);
   const myPos = orderedDays.findIndex((d) => d.day_id === selectedDayId);
@@ -130,6 +132,7 @@ export default function ProjectEditorPage() {
             roadworks={roadworks}
             potholes={potholes}
             otherDays={otherDays}
+            dayColors={dayColors}
             onMapClick={(lat, lon) => {
               // Placing a POI wins: it is the more specific mode, and the two are
               // never usefully active at once.
