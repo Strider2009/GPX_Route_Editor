@@ -16,6 +16,11 @@ services:
       - BRIEFING_MODEL=${BRIEFING_MODEL:-}
       - TRIPADVISOR_API_KEY=${TRIPADVISOR_API_KEY:-}
       - OVERPASS_BASE=${OVERPASS_BASE:-}
+      # Elevation: which source "Fill elevation" uses by default (open-meteo,
+      # opentopodata-eudem25m, opentopodata-srtm30m), and an optional self-hosted
+      # OpenTopoData server to get past the public one's 1 call/s limit.
+      - ELEVATION_PROVIDER=${ELEVATION_PROVIDER:-}
+      - OPENTOPODATA_BASE=${OPENTOPODATA_BASE:-}
     volumes:
       - ./data:/data
     ports:

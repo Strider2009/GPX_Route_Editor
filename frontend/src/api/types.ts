@@ -340,7 +340,8 @@ export interface ShadowCandidate {
 }
 
 /** [lat, lon, indexIntoThatDaysPoints] */
-export type GeomPoint = [number, number, number];
+/** [lat, lon, index into the day's full points, ele] */
+export type GeomPoint = [number, number, number, number | null];
 
 export interface DayGeometry {
   day_id: number;
@@ -365,4 +366,61 @@ export interface HistoryStatus {
   redo_action: string | null;
   undo_depth: number;
   redo_depth: number;
+}
+
+export interface ElevationProviderInfo {
+  id: string;
+  label: string;
+  description: string;
+  /** The one used when no provider is named (ELEVATION_PROVIDER on the server). */
+  default: boolean;
+}
+
+/** A fill running on the server; poll it until it's no longer running. */
+export interface ElevationFillJob {
+  id: string;
+  project_id: number;
+  provider: string;
+  provider_label: string;
+  overwrite: boolean;
+  status: "running" | "done" | "error";
+  /** Distinct locations looked up so far, of `total`. */
+  done: number;
+  total: number;
+  /** Points given a height, once done. */
+  filled: number;
+  error: string | null;
+}
+
+/** Differences are provider minus recorded, in metres. */
+export interface ElevationStats {
+  compared: number;
+  bias_m: number;
+  mae_m: number;
+  rmse_m: number;
+  max_abs_m: number;
+}
+
+export interface ElevationProfileTotals {
+  ascent_m: number;
+  descent_m: number;
+}
+
+export interface ElevationProviderResult extends Omit<ElevationProviderInfo, "default"> {
+  error: string | null;
+  stats: ElevationStats | null;
+  seconds?: number;
+  /** One per sample, in sample order. */
+  heights?: (number | null)[];
+  profile?: ElevationProfileTotals;
+}
+
+export interface ElevationComparison {
+  point_count: number;
+  distance_m: number;
+  /** The points every provider was asked about: index into the day, distance along the samples, recorded height. */
+  samples: { index: number; d: number; ele: number | null }[];
+  /** Totals over the samples, so they line up with each provider's; null when the route has no heights. */
+  recorded: ElevationProfileTotals | null;
+  providers: ElevationProviderResult[];
 }

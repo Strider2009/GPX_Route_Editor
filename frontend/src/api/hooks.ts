@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type { ConnectorType, DayDetail, Point } from "./types";
@@ -604,5 +605,48 @@ export function useRedo(projectId: number) {
   return useMutation({
     mutationFn: () => api.redo(projectId),
     onSuccess: () => invalidateRouteData(qc, projectId),
+  });
+}
+
+export function useElevationProviders() {
+  return useQuery({
+    queryKey: ["elevation-providers"],
+    queryFn: () => api.elevationProviders(),
+    staleTime: Infinity,
+  });
+}
+
+/** Starts a fill on the server. Follow it with useElevationJob. */
+export function useFillElevation(projectId: number) {
+  return useMutation({
+    mutationFn: (vars: { provider: string | null; overwrite: boolean }) =>
+      api.fillElevation(projectId, vars.provider, vars.overwrite),
+  });
+}
+
+/** Polls a fill until it finishes, then refreshes everything derived from the route. */
+export function useElevationJob(projectId: number, jobId: string | null) {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: ["elevation-job", jobId],
+    queryFn: () => api.elevationJob(jobId!),
+    enabled: jobId != null,
+    refetchInterval: (q) => (q.state.data?.status === "running" || !q.state.data ? 1000 : false),
+    retry: false,
+  });
+  const finished = query.data?.status === "done" && query.data.filled > 0;
+  useEffect(() => {
+    if (!finished) return;
+    invalidateRouteData(qc, projectId);
+    qc.invalidateQueries({ queryKey: ["briefing"] });
+  }, [finished, qc, projectId]);
+  return query;
+}
+
+/** A mutation rather than a query: it spends rate-limited provider calls, so it runs only on request. */
+export function useCompareElevation() {
+  return useMutation({
+    mutationFn: (vars: { dayId: number; providers: string[]; samples: number }) =>
+      api.compareElevation(vars.dayId, vars.providers, vars.samples),
   });
 }

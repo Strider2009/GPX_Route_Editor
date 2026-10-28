@@ -1,22 +1,25 @@
 import type {
+  Boundary,
+  BoundaryList,
   Briefing,
   BriefingNarrative,
   ConnectorType,
   DayDetail,
+  DayWeather,
+  ElevationComparison,
+  ElevationFillJob,
+  ElevationProviderInfo,
+  FetchResult,
+  HistoryStatus,
   Poi,
   Point,
-  ProjectDetail,
-  ProjectSummary,
-  FetchResult,
-  Boundary,
-  BoundaryList,
-  DayWeather,
-  HistoryStatus,
-  ProjectGeometry,
-  ShiftResult,
   PotholeFetchResult,
   PotholeResponse,
+  ProjectDetail,
+  ProjectGeometry,
+  ProjectSummary,
   RoadworksResponse,
+  ShiftResult,
   StravaRoute,
   StravaStatus,
   TilesForDay,
@@ -69,6 +72,18 @@ export const api = {
     request<HistoryStatus & { redone: string }>(`/projects/${projectId}/redo`, { method: "POST" }),
   projectGeometry: (projectId: number) =>
     request<ProjectGeometry>(`/projects/${projectId}/geometry`),
+  elevationProviders: () => request<ElevationProviderInfo[]>("/elevation/providers"),
+  fillElevation: (projectId: number, provider: string | null, overwrite: boolean) =>
+    request<ElevationFillJob>(`/projects/${projectId}/elevation`, {
+      method: "POST",
+      body: JSON.stringify({ provider, overwrite }),
+    }),
+  elevationJob: (jobId: string) => request<ElevationFillJob>(`/elevation/jobs/${jobId}`),
+  compareElevation: (dayId: number, providers: string[], samples: number) => {
+    const params = new URLSearchParams({ samples: String(samples) });
+    providers.forEach((p) => params.append("providers", p));
+    return request<ElevationComparison>(`/days/${dayId}/elevation/compare?${params}`);
+  },
   setDayEdge: (
     projectId: number,
     dayId: number,

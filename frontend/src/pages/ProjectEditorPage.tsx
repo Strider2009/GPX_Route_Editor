@@ -14,6 +14,7 @@ import PointContextMenu, { type ContextTarget } from "../components/PointContext
 import RoadworksPanel from "../components/RoadworksPanel";
 import PotholePanel from "../components/PotholePanel";
 import ElevationProfile from "../components/ElevationProfile";
+import ElevationPanel from "../components/ElevationPanel";
 import DaySummary from "../components/DaySummary";
 import BoundaryPanel from "../components/BoundaryPanel";
 import { dayColorMap } from "../lib/dayColors";
@@ -76,6 +77,7 @@ export default function ProjectEditorPage() {
   const [roadworks, setRoadworks] = useState<RoadworkMatch[]>([]);
   const [potholes, setPotholes] = useState<PotholeMatch[]>([]);
   const [venues, setVenues] = useState<VenueSearchResult[]>([]);
+  const [fillJobId, setFillJobId] = useState<string | null>(null);
 
   useEffect(() => {
     setContextMenu(null);
@@ -118,6 +120,9 @@ export default function ProjectEditorPage() {
             />
           )}
           {day && <VenuePanel projectId={pid} day={day} onResultsChange={setVenues} />}
+          {day && (
+            <ElevationPanel projectId={pid} day={day} fillJobId={fillJobId} setFillJobId={setFillJobId} />
+          )}
           {day && <RoadworksPanel dayId={day.id} onMatchesChange={setRoadworks} />}
           {day && <PotholePanel dayId={day.id} onMatchesChange={setPotholes} />}
         </aside>
@@ -156,9 +161,15 @@ export default function ProjectEditorPage() {
             }
           />
           </div>
-          {day && day.points.length > 1 && (
+          {orderedDays.some((d) => d.points.length > 1) && (
             <div className="bg-surface border-t border-line">
-              <ElevationProfile points={day.points} roadworks={roadworks} potholes={potholes} />
+              <ElevationProfile
+                days={orderedDays}
+                selectedDayId={selectedDayId}
+                dayColors={dayColors}
+                roadworks={roadworks}
+                potholes={potholes}
+              />
             </div>
           )}
         </main>

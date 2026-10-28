@@ -7,6 +7,7 @@ from .routers import (
     briefing,
     connectors,
     days,
+    elevation,
     pois,
     potholes,
     projects,
@@ -37,6 +38,7 @@ def health():
 
 app.include_router(projects.router, prefix="/api")
 app.include_router(days.router, prefix="/api")
+app.include_router(elevation.router, prefix="/api")
 app.include_router(connectors.router, prefix="/api")
 app.include_router(pois.router, prefix="/api")
 app.include_router(venues.router, prefix="/api")

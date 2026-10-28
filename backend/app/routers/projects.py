@@ -225,9 +225,9 @@ def project_geometry(
 ):
     """Every day's line, thinned for drawing but carrying real point indices.
 
-    Used to show the rest of the trip behind the day being edited. Each point is
-    [lat, lon, index] so a click on the thinned line still maps back to the exact
-    point in that day's route.
+    Used to show the rest of the trip behind the day being edited, and for the
+    whole-trip elevation profile. Each point is [lat, lon, index, ele] so a click
+    on the thinned line still maps back to the exact point in that day's route.
     """
     project = get_project_or_404(db, project_id)
     days = sorted(project.days, key=lambda d: d.order_index)
@@ -238,10 +238,15 @@ def project_geometry(
         if not points:
             continue
         step = max(1, len(points) // max_points)
-        thinned = [[points[i]["lat"], points[i]["lon"], i] for i in range(0, len(points), step)]
+        thinned = [
+            [points[i]["lat"], points[i]["lon"], i, points[i].get("ele")]
+            for i in range(0, len(points), step)
+        ]
         last = len(points) - 1
         if thinned[-1][2] != last:
-            thinned.append([points[last]["lat"], points[last]["lon"], last])
+            thinned.append(
+                [points[last]["lat"], points[last]["lon"], last, points[last].get("ele")]
+            )
         out.append(
             {
                 "day_id": day.id,
