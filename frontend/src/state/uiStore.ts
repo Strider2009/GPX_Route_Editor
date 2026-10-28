@@ -5,8 +5,8 @@ type Mode = "select" | "add-connector-point";
 interface UIState {
   selectedDayId: number | null;
   selectedPointIndex: number | null;
-  /** Previewed under the cursor. Separate from selection: it must not scroll the
-   *  point list or move the map, only light the point up. */
+  /** Previewed under the cursor. Separate from selection: it must not move the
+   *  map, only light the point up. */
   hoveredPointIndex: number | null;
   /** A point picked on one of the shadow days, so it can be shown and acted on. */
   shadowPoint: { dayId: number; index: number; lat: number; lon: number } | null;
@@ -53,9 +53,9 @@ export const useUIStore = create<UIState>((set) => ({
   // The user picked a point, so bring it into view.
   setSelectedPoint: (index) =>
     set((s) => ({ selectedPointIndex: index, shadowPoint: null, panRequestId: s.panRequestId + 1 })),
-  // Select without moving the map. Used when a route edit renumbers the points
-  // (the map is already on that spot) and when right-clicking, where the menu is
-  // pinned to the cursor and would drift if the map slid underneath it.
+  // Select without moving the map. Used for anything picked on the map itself
+  // (it's already in view), when a route edit renumbers the points, and when
+  // right-clicking, where the menu would drift if the map slid underneath it.
   selectPointQuietly: (index) => set({ selectedPointIndex: index, shadowPoint: null }),
   setRangeStart: (index) => set({ rangeStart: index }),
   setMode: (m) => set({ mode: m }),

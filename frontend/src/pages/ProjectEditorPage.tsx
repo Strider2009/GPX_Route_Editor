@@ -9,7 +9,6 @@ import PoiPanel from "../components/PoiPanel";
 import VenuePanel from "../components/VenuePanel";
 import BriefingPanel from "../components/BriefingPanel";
 import MapView from "../components/MapView";
-import PointList from "../components/PointList";
 import PointContextMenu, { type ContextTarget } from "../components/PointContextMenu";
 import RoadworksPanel from "../components/RoadworksPanel";
 import PotholePanel from "../components/PotholePanel";
@@ -173,27 +172,6 @@ export default function ProjectEditorPage() {
             </div>
           )}
         </main>
-        <aside className="w-96 shrink-0 overflow-hidden bg-surface border-l border-line">
-          {day ? (
-            <PointList
-              points={day.points}
-              dayName={`Day ${dayNumber}: ${day.name}`}
-              isCircular={day.is_circular}
-              onContextMenu={(pointIndex, x, y) =>
-                setContextMenu({
-                  otherDayId: null,
-                  index: pointIndex,
-                  x,
-                  y,
-                  hasPrevious,
-                  hasNext,
-                })
-              }
-            />
-          ) : (
-            <div className="p-4 text-sm text-ink-muted">Select a day.</div>
-          )}
-        </aside>
       </div>
       {day && contextMenu && (
         <PointContextMenu

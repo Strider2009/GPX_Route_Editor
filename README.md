@@ -3,7 +3,7 @@
 A self-hosted tool for reshaping GPX routes for trip planning: mark loops as circular and
 pick a new start/end point, split a big route into per-day sections, lock a day's core route
 so later additions (like a spur to a hotel or cafe) can't accidentally change it, and view/edit
-everything on a map and in a point list.
+everything on a map.
 
 ## Running it
 

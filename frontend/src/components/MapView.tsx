@@ -201,7 +201,6 @@ export default function MapView({
   onPointContextMenu,
 }: Props) {
   const selectedPointIndex = useUIStore((s) => s.selectedPointIndex);
-  const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
   const setShadowPoint = useUIStore((s) => s.setShadowPoint);
   const selectPointQuietly = useUIStore((s) => s.selectPointQuietly);
   const shadowPoint = useUIStore((s) => s.shadowPoint);
@@ -339,7 +338,7 @@ export default function MapView({
             fillColor: RELEVANCE_COLORS[w.cycling_relevance],
             fillOpacity: 0.9,
           }}
-          eventHandlers={{ click: () => setSelectedPoint(w.nearest_point_index) }}
+          eventHandlers={{ click: () => selectPointQuietly(w.nearest_point_index) }}
         >
           <Tooltip>
             <div className="text-xs">
@@ -360,7 +359,7 @@ export default function MapView({
           center={[p.lat, p.lon]}
           radius={5}
           pathOptions={{ color: "#ffffff", weight: 1.5, fillColor: POTHOLE_COLOR, fillOpacity: 0.9 }}
-          eventHandlers={{ click: () => setSelectedPoint(p.nearest_point_index) }}
+          eventHandlers={{ click: () => selectPointQuietly(p.nearest_point_index) }}
         >
           <Tooltip>
             <div className="text-xs">
@@ -448,8 +447,9 @@ export default function MapView({
           }
           const pick = pickNearest(points, otherDays, lat, lon);
           if (!pick) return;
+          // Already under the cursor, so there's nothing to bring into view.
           if (pick.otherDayId == null) {
-            setSelectedPoint(pick.index);
+            selectPointQuietly(pick.index);
           } else {
             // Picked on a shadow day: mark it without disturbing the current
             // day's own selection machinery.
